@@ -13,10 +13,12 @@ allprojects {
     // release workflow (which extracts it from the git tag). For local
     // dev runs the placeholder `0.0.0` from gradle.properties is used.
     group = "fr.gunduz.awstoken"
+    // Fallback is `1.0.0` (not `0.0.0`) because `jpackage` rejects `MAJOR=0`
+    // when packaging a `.dmg`. Mirrors `app.version` in gradle.properties.
     version =
         findProperty("app.version")
             ?.toString()
-            ?.removeSuffix("-SNAPSHOT") ?: "0.0.0"
+            ?.removeSuffix("-SNAPSHOT") ?: "1.0.0"
 
     apply(
         plugin =

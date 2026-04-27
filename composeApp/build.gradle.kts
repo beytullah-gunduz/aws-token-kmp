@@ -20,11 +20,13 @@ plugins {
 // from the release workflow (extracted from the git tag); falls back to
 // the placeholder in `gradle.properties` for local dev. Used both for the
 // in-Gradle `project.version` and Compose Desktop's `packageVersion`.
+// Fallback is `1.0.0` (not `0.0.0`) because `jpackage` rejects `MAJOR=0`
+// when packaging a `.dmg`. Mirrors `app.version` in gradle.properties.
 val appVersion: String =
     project
         .findProperty("app.version")
         ?.toString()
-        ?.removeSuffix("-SNAPSHOT") ?: "0.0.0"
+        ?.removeSuffix("-SNAPSHOT") ?: "1.0.0"
 
 // Detect once whether we're on a macOS host. macOS-only build steps (the
 // .icns generation that calls `iconutil`) are gated on this so Linux and

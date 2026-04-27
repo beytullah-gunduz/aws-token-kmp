@@ -24,6 +24,15 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# `windows-latest` defaults to PowerShell, whose argument parser splits
+# `-Papp.version=1.0.0` at the dot — Gradle then sees `.version=1.0.0` as an
+# unknown task and dies with `Task '.version=1.0.0' not found in root project`.
+# Forcing bash at the workflow level keeps every `run:` step on a parser that
+# handles dotted Kotlin/Gradle property syntax correctly.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     strategy:
@@ -50,7 +59,6 @@ jobs:
 
       - name: Extract version from tag
         id: version
-        shell: bash
         run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       # JDK 21 matches `jvmToolchain(21)` in composeApp/build.gradle.kts.
@@ -67,18 +75,24 @@ jobs:
         run: chmod +x gradlew
 
       - name: Verify formatting
-        shell: bash
         run: ./gradlew spotlessCheck
 
       - name: Build installer
-        shell: bash
         run: ./gradlew :composeApp:${{ matrix.task }} -Papp.version=${{ steps.version.outputs.version }}
 
+      # Detect-and-fallback because no single tool is universally available:
+      # macOS has `shasum` (Perl-based) but no `sha256sum`, Windows git-bash
+      # has `sha256sum` (coreutils) but no `shasum` (no Perl), Linux has both.
+      # `sha256sum` and `shasum -a 256` produce identical "<hash>  <file>" output.
       - name: Generate SHA256 checksum
-        shell: bash
         run: |
+          if command -v sha256sum >/dev/null 2>&1; then
+            HASH="sha256sum"
+          else
+            HASH="shasum -a 256"
+          fi
           for f in ${{ matrix.artifact-glob }}; do
-            shasum -a 256 "$f" > "$f.sha256"
+            $HASH "$f" > "$f.sha256"
           done
 
       - uses: actions/upload-artifact@v4
