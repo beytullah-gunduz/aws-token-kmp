@@ -1,0 +1,46 @@
+.docs
+
+# Gradle + Kotlin build outputs
+.gradle/
+.kotlin/
+build/
+out/
+bin/
+
+# IDE / editor
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.DS_Store
+*.swp
+*.swo
+*~
+
+# Local-only config that can leak secrets
+local.properties
+.env
+.env.*
+secrets.properties
+
+# Signing / keystores
+*.keystore
+*.jks
+*.p12
+*.pfx
+
+# Android
+*.apk
+*.aab
+captures/
+
+# Logs / runtime artifacts
+*.log
+*.log.old
+hs_err_pid*
+
+# macOS bundles / packaged desktop distributions
+*.dmg
+*.pkg
+composeApp/src/desktopMain/distributions/

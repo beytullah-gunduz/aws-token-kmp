@@ -1,0 +1,109 @@
+name: Release
+
+# Tag-driven release. Push a `v*` tag (e.g. `v1.2.3`) and this workflow:
+#   1. Builds the macOS DMG, Linux DEB, and Windows MSI in parallel matrix
+#      jobs, with the version coming straight from the tag (`-Papp.version=`).
+#   2. Generates a SHA256 checksum next to each installer.
+#   3. Aggregates all artifacts into a single GitHub Release.
+#
+# The whole release is atomic: `fail-fast: true` aborts everything if any
+# matrix job fails, and `fail_on_unmatched_files: true` makes the release
+# step fail loudly if a job uploaded nothing. Recovery from a bad tag is
+# `git tag -d v1.2.3 && git push --delete origin v1.2.3 && fix && retag`.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+# Don't cancel a release in progress if a second tag is pushed — let the
+# first one finish so we don't end up with a half-uploaded GitHub Release.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - os: macos-latest
+            task: packageReleaseDmg
+            artifact-name: aws-token-kmp-macos
+            artifact-glob: composeApp/build/compose/binaries/main-release/dmg/*.dmg
+          - os: ubuntu-latest
+            task: packageReleaseDeb
+            artifact-name: aws-token-kmp-linux
+            artifact-glob: composeApp/build/compose/binaries/main-release/deb/*.deb
+          - os: windows-latest
+            task: packageReleaseMsi
+            artifact-name: aws-token-kmp-windows
+            artifact-glob: composeApp/build/compose/binaries/main-release/msi/*.msi
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      # JDK 21 matches `jvmToolchain(21)` in composeApp/build.gradle.kts.
+      # If the toolchain ever bumps, change this here too.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Grant execute permission for gradlew
+        if: runner.os != 'Windows'
+        run: chmod +x gradlew
+
+      - name: Verify formatting
+        shell: bash
+        run: ./gradlew spotlessCheck
+
+      - name: Build installer
+        shell: bash
+        run: ./gradlew :composeApp:${{ matrix.task }} -Papp.version=${{ steps.version.outputs.version }}
+
+      - name: Generate SHA256 checksum
+        shell: bash
+        run: |
+          for f in ${{ matrix.artifact-glob }}; do
+            shasum -a 256 "$f" > "$f.sha256"
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: |
+            ${{ matrix.artifact-glob }}
+            ${{ matrix.artifact-glob }}.sha256
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      # Tags containing `-` (e.g. `v1.0.0-beta.1`) auto-publish as
+      # pre-releases so they don't become "Latest" on the repo page.
+      - uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: artifacts/**
+          fail_on_unmatched_files: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
