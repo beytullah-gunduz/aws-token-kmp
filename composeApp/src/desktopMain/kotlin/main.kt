@@ -28,6 +28,7 @@ import fr.gunduz.awstoken.aws.CredentialsFileReader
 import fr.gunduz.awstoken.aws.IamAccountAliasClient
 import fr.gunduz.awstoken.aws.mirrorDefaultFromDisk
 import fr.gunduz.awstoken.aws.writeCredsAndMaybeDefault
+import fr.gunduz.awstoken.console.openConsoleWithReauth
 import fr.gunduz.awstoken.desktop.auth.PasswordCache
 import fr.gunduz.awstoken.desktop.auth.RefreshScheduler
 import fr.gunduz.awstoken.desktop.chrome.DockIconVisibility
@@ -390,6 +391,23 @@ private fun androidx.compose.ui.window.ApplicationScope.awsTokenApp() {
                 }
             },
             onAuthenticate = { id -> AuthRequestBus.request(id) },
+            onOpenConsole = { id ->
+                appScope.launch {
+                    val target = profiles.firstOrNull { it.id == id } ?: return@launch
+                    openConsoleWithReauth(target) { msg ->
+                        // Route any failure into an OS-native notification
+                        // anchored to the tray icon. `current` is set when
+                        // the tray is `install()`-ed in the DisposableEffect
+                        // below, so by the time a menu click fires it's
+                        // guaranteed non-null.
+                        AwsTokenTray.current?.notify(
+                            title = "AWS Console — ${target.name}",
+                            message = msg,
+                            isError = true,
+                        )
+                    }
+                }
+            },
         )
     }
 

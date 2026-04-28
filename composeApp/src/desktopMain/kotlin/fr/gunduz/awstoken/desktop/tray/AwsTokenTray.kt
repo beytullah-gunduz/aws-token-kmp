@@ -35,6 +35,7 @@ class AwsTokenTray(
     private val onSelectRegion: (profileId: String, region: AwsRegion) -> Unit,
     private val onSetDefault: (profileId: String) -> Unit,
     private val onAuthenticate: (profileId: String) -> Unit,
+    private val onOpenConsole: (profileId: String) -> Unit,
 ) {
     private var trayIcon: TrayIcon? = null
     private var iconSize: Dimension = Dimension(22, 22)
@@ -58,6 +59,11 @@ class AwsTokenTray(
         }
         tray.add(icon)
         trayIcon = icon
+        // Process-wide handle so callbacks defined where the tray is being
+        // constructed (in `main.kt`) can route notifications back here
+        // without needing a self-reference. Same pattern as
+        // `RefreshScheduler.current`.
+        current = this
     }
 
     private fun renderIcon(w: Int, h: Int): BufferedImage {
@@ -83,6 +89,21 @@ class AwsTokenTray(
         stopSpinner()
         trayIcon?.let { SystemTray.getSystemTray().remove(it) }
         trayIcon = null
+        if (current === this) current = null
+    }
+
+    /**
+     * Show an OS-native notification anchored to the tray icon. Used by
+     * tray-initiated actions (e.g. "Open in AWS Console") to surface
+     * failures without requiring the user to be in the main window — the
+     * notification routes through Notification Center on macOS, balloons
+     * on Windows, libnotify on Linux. No-op if `install()` hasn't run yet
+     * or the platform doesn't support a tray.
+     */
+    fun notify(title: String, message: String, isError: Boolean = false) {
+        val type = if (isError) TrayIcon.MessageType.WARNING else TrayIcon.MessageType.INFO
+        runCatching { trayIcon?.displayMessage(title, message, type) }
+            .onFailure { Logger.w(it, tag = "AwsTokenTray") { "tray notify failed: $title — $message" } }
     }
 
     fun updateProfiles(
@@ -262,6 +283,12 @@ class AwsTokenTray(
             },
         )
 
+        profileMenu.add(
+            MenuItem("Open in AWS Console").apply {
+                addActionListener { onOpenConsole(profile.id) }
+            },
+        )
+
         profileMenu.addSeparator()
 
         // Region submenu — hover-opened because AWT Menu is always
@@ -282,5 +309,18 @@ class AwsTokenTray(
         profileMenu.add(setDefault)
 
         return profileMenu
+    }
+
+    companion object {
+        /**
+         * Process-wide handle to the live tray instance. Set in `install`
+         * and cleared in `remove`. Lets `main.kt`-side callbacks route OS
+         * notifications back through the tray (e.g. when a tray menu action
+         * fails) without needing a self-reference at construction time.
+         * Single tray per process so the singleton is sufficient.
+         */
+        @Volatile
+        var current: AwsTokenTray? = null
+            private set
     }
 }
