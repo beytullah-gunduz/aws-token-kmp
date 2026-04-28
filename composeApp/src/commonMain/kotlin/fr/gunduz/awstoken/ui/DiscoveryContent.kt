@@ -296,7 +296,17 @@ fun DiscoveryContent(
                                     createProfilesFromDiscovery(discovery)
                                 }
                                 StartupGate.markDiscoveryComplete()
-                                busy = false
+                                // Deliberately *not* resetting `busy` here.
+                                // `onDiscovered` swaps Login out of the
+                                // NavDisplay backStack, so the form is about
+                                // to unmount; flipping busy=false first would
+                                // recompose this composable in its enabled
+                                // state for one frame, which the NavDisplay
+                                // cross-fade then makes visible (inputs
+                                // un-gray, progress bar disappears) right
+                                // before the screen swap. Keeping busy=true
+                                // until unmount lets the form fade out still
+                                // showing its in-flight state.
                                 onDiscovered(created)
                             }.onFailure { err ->
                                 busy = false
