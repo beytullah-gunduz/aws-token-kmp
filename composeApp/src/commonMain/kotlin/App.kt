@@ -1,3 +1,7 @@
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,9 +33,22 @@ fun App() {
             // Login again from AccountList (the Discover icon) works the
             // same way — on success we pop back to AccountList.
             val backStack = remember { mutableStateListOf<Route>(Login) }
+            // Smooth out NavDisplay's screen swap. The default
+            // `defaultTransitionSpec()` is platform-specific and feels abrupt
+            // for full-screen replacements (e.g. Login → AccountList right
+            // after a successful discovery). 350 ms is the Material range for
+            // screen-level transitions — deliberate without dragging.
             NavDisplay(
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(500)) togetherWith
+                        fadeOut(animationSpec = tween(500))
+                },
+                popTransitionSpec = {
+                    fadeIn(animationSpec = tween(500)) togetherWith
+                        fadeOut(animationSpec = tween(500))
+                },
                 entryProvider = { key ->
                     when (key) {
                         Login -> NavEntry(key) {
