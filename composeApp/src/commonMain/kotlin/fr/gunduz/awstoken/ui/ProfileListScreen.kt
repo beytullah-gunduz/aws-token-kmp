@@ -69,6 +69,7 @@ import fr.gunduz.awstoken.auth.isSecureCredentialStoreAvailable
 import fr.gunduz.awstoken.auth.loadPersistedPasswordForCurrentIdentity
 import fr.gunduz.awstoken.auth.readCachedSessionPassword
 import fr.gunduz.awstoken.aws.refreshAllAccountAliases
+import fr.gunduz.awstoken.console.openConsoleWithReauth
 import fr.gunduz.awstoken.repository.PreferenceRepository
 import fr.gunduz.awstoken.ui.chrome.TopBarDragArea
 import fr.gunduz.awstoken.ui.chrome.WindowChromeLeading
@@ -209,6 +210,13 @@ fun ProfileListScreen(
                                 },
                                 onProfileToggleRefresh = { p, enabled ->
                                     scope.launch { prefs.setProfileRefreshEnabled(p.id, enabled) }
+                                },
+                                onProfileOpenConsole = { p ->
+                                    scope.launch {
+                                        openConsoleWithReauth(p) { msg ->
+                                            snackbarHostState.showSnackbar(msg)
+                                        }
+                                    }
                                 },
                             )
                         }
@@ -399,6 +407,7 @@ private fun AccountGroup(
     onProfileSetDefault: (fr.gunduz.awstoken.model.AwsProfile) -> Unit,
     onProfileChangeRegion: (fr.gunduz.awstoken.model.AwsProfile, fr.gunduz.awstoken.model.AwsRegion) -> Unit,
     onProfileToggleRefresh: (fr.gunduz.awstoken.model.AwsProfile, Boolean) -> Unit,
+    onProfileOpenConsole: (fr.gunduz.awstoken.model.AwsProfile) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         AccountHeader(
@@ -435,6 +444,7 @@ private fun AccountGroup(
                     onSetDefault = { onProfileSetDefault(profile) },
                     onChangeRegion = { r -> onProfileChangeRegion(profile, r) },
                     onToggleRefresh = { enabled -> onProfileToggleRefresh(profile, enabled) },
+                    onOpenConsole = { onProfileOpenConsole(profile) },
                 )
             }
         }
@@ -503,6 +513,7 @@ private fun ProfileRow(
     onSetDefault: () -> Unit,
     onChangeRegion: (fr.gunduz.awstoken.model.AwsRegion) -> Unit,
     onToggleRefresh: (Boolean) -> Unit,
+    onOpenConsole: () -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
     val elevation by animateDpAsState(
@@ -614,6 +625,17 @@ private fun ProfileRow(
                         overflow = TextOverflow.Ellipsis,
                         textAlign = TextAlign.Start,
                         modifier = Modifier.width(128.dp),
+                    )
+                }
+                IconButton(
+                    onClick = onOpenConsole,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Icon(
+                        AppIcons.OpenInNew,
+                        contentDescription = "Open AWS Console for this profile",
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 IconButton(
