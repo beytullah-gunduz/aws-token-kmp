@@ -9,7 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -121,191 +121,196 @@ fun DiscoveryContent(
         (usingKeychain || password.isNotEmpty()) &&
         !busy
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            "Sign in once against ADFS and a profile is created for every role your account can assume.",
-            style = MaterialTheme.typography.bodySmall,
-        )
-        OutlinedTextField(
-            value = adfsHost,
-            onValueChange = { adfsHost = it },
-            label = { Text("ADFS host (e.g. sts.example.com)") },
-            singleLine = true,
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
-            label = { Text("Username (DOMAIN\\user or user@domain)") },
-            singleLine = true,
-            enabled = !busy,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        // When a saved password is available and the user hasn't focused the
-        // field yet, render 8 literal "•" characters directly as the field's
-        // text so the password box is visibly non-empty at rest — no click
-        // required. We drop `PasswordVisualTransformation` in that state so
-        // the dots show as-is (applying the transformation on top of dot
-        // characters would render them again identically but makes the
-        // intent murky). The moment the field gets focus, `passwordFocused`
-        // flips and we show the real (empty) editor with password masking
-        // re-enabled, ready for the user to type an override.
-        val showSavedDotsPreview = savedPasswordAvailable && password.isEmpty() && !passwordFocused
-        OutlinedTextField(
-            value = if (showSavedDotsPreview) "••••••••" else password,
-            onValueChange = { password = it },
-            label = { Text("Password") },
-            // Once the user clicks the field, the dot preview disappears
-            // and Material3's normal placeholder kicks in (focused+empty),
-            // spelling out why the field is empty and how to bypass the
-            // saved value.
-            placeholder = if (savedPasswordAvailable) {
-                {
-                    Text(
-                        "Using saved password — type to override",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            } else {
-                null
-            },
-            singleLine = true,
-            enabled = !busy,
-            visualTransformation = if (showSavedDotsPreview) VisualTransformation.None else PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions.Default,
+    // Outer wrapper: hosts the in-flight progress bar pinned to the top of
+    // the form so it stays visible regardless of scroll position. The
+    // existing scrollable Column lives inside, untouched.
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (busy) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .onFocusChanged { passwordFocused = it.isFocused },
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Checkbox(
-                checked = fetchAliasesFromAws,
-                onCheckedChange = { checked ->
-                    fetchAliasesFromAws = checked
-                    scope.launch {
-                        PreferenceRepository.instance.setDiscoverySyncAliases(checked)
-                    }
-                },
-                enabled = !busy,
-            )
             Text(
-                text = "Also sync account aliases from AWS",
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
+                "Sign in once against ADFS and a profile is created for every role your account can assume.",
+                style = MaterialTheme.typography.bodySmall,
             )
-        }
-
-        if (keychainAvailable) {
+            OutlinedTextField(
+                value = adfsHost,
+                onValueChange = { adfsHost = it },
+                label = { Text("ADFS host (e.g. sts.example.com)") },
+                singleLine = true,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username (DOMAIN\\user or user@domain)") },
+                singleLine = true,
+                enabled = !busy,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            // When a saved password is available and the user hasn't focused the
+            // field yet, render 8 literal "•" characters directly as the field's
+            // text so the password box is visibly non-empty at rest — no click
+            // required. We drop `PasswordVisualTransformation` in that state so
+            // the dots show as-is (applying the transformation on top of dot
+            // characters would render them again identically but makes the
+            // intent murky). The moment the field gets focus, `passwordFocused`
+            // flips and we show the real (empty) editor with password masking
+            // re-enabled, ready for the user to type an override.
+            val showSavedDotsPreview = savedPasswordAvailable && password.isEmpty() && !passwordFocused
+            OutlinedTextField(
+                value = if (showSavedDotsPreview) "••••••••" else password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                // Once the user clicks the field, the dot preview disappears
+                // and Material3's normal placeholder kicks in (focused+empty),
+                // spelling out why the field is empty and how to bypass the
+                // saved value.
+                placeholder = if (savedPasswordAvailable) {
+                    {
+                        Text(
+                            "Using saved password — type to override",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                } else {
+                    null
+                },
+                singleLine = true,
+                enabled = !busy,
+                visualTransformation = if (showSavedDotsPreview) VisualTransformation.None else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions.Default,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { passwordFocused = it.isFocused },
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Checkbox(
-                    checked = rememberPassword,
+                    checked = fetchAliasesFromAws,
                     onCheckedChange = { checked ->
-                        rememberPassword = checked
+                        fetchAliasesFromAws = checked
                         scope.launch {
-                            PreferenceRepository.instance.setPersistPasswordInKeychain(checked)
-                            if (!checked) {
-                                clearPersistedPasswordForCurrentIdentity()
-                                keychainPasswordForSavedIdentity = null
-                            }
+                            PreferenceRepository.instance.setDiscoverySyncAliases(checked)
                         }
                     },
                     enabled = !busy,
                 )
                 Text(
-                    text = "Remember password in macOS Keychain",
+                    text = "Also sync account aliases from AWS",
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.weight(1f),
                 )
             }
-        }
 
-        if (busy) {
-            CircularProgressIndicator()
-        }
-        if (errorMessage != null) {
-            Text(errorMessage!!, color = MaterialTheme.colorScheme.error)
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (onCancel != null) {
-                TextButton(onClick = onCancel, enabled = !busy) { Text("Cancel") }
+            if (keychainAvailable) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Checkbox(
+                        checked = rememberPassword,
+                        onCheckedChange = { checked ->
+                            rememberPassword = checked
+                            scope.launch {
+                                PreferenceRepository.instance.setPersistPasswordInKeychain(checked)
+                                if (!checked) {
+                                    clearPersistedPasswordForCurrentIdentity()
+                                    keychainPasswordForSavedIdentity = null
+                                }
+                            }
+                        },
+                        enabled = !busy,
+                    )
+                    Text(
+                        text = "Remember password in macOS Keychain",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
-            Button(
-                enabled = canSubmit,
-                onClick = {
-                    busy = true
-                    errorMessage = null
-                    scope.launch {
-                        // Persist host/username + the checkbox states up-front
-                        // so a failed discovery still leaves them saved and
-                        // we're not racing an in-flight checkbox scope.launch.
-                        PreferenceRepository.instance.setLastDiscoveryIdentity(
-                            adfsHost = adfsHost.trim(),
-                            username = username.trim(),
-                        )
-                        PreferenceRepository.instance.setDiscoverySyncAliases(fetchAliasesFromAws)
-                        if (keychainAvailable) {
-                            PreferenceRepository.instance.setPersistPasswordInKeychain(rememberPassword)
-                        }
-                        val effectivePassword = if (usingKeychain) {
-                            keychainPasswordForSavedIdentity
-                        } else {
-                            password
-                        }
-                        if (effectivePassword.isNullOrEmpty()) {
-                            busy = false
-                            errorMessage = "No password available — please enter one."
-                            keychainPasswordForSavedIdentity = null
-                            return@launch
-                        }
-                        val usedCachedPassword = usingKeychain
-                        val result = AdfsAuthenticator().discoverRoles(
-                            adfsHost = adfsHost.trim(),
-                            username = username.trim(),
-                            password = effectivePassword,
-                            fetchAliasesFromAws = fetchAliasesFromAws,
-                        )
-                        result.onSuccess { discovery ->
-                            if (!usedCachedPassword) {
-                                rememberPasswordForSession(effectivePassword)
+
+            if (errorMessage != null) {
+                Text(errorMessage!!, color = MaterialTheme.colorScheme.error)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (onCancel != null) {
+                    TextButton(onClick = onCancel, enabled = !busy) { Text("Cancel") }
+                }
+                Button(
+                    enabled = canSubmit,
+                    onClick = {
+                        busy = true
+                        errorMessage = null
+                        scope.launch {
+                            // Persist host/username + the checkbox states up-front
+                            // so a failed discovery still leaves them saved and
+                            // we're not racing an in-flight checkbox scope.launch.
+                            PreferenceRepository.instance.setLastDiscoveryIdentity(
+                                adfsHost = adfsHost.trim(),
+                                username = username.trim(),
+                            )
+                            PreferenceRepository.instance.setDiscoverySyncAliases(fetchAliasesFromAws)
+                            if (keychainAvailable) {
+                                PreferenceRepository.instance.setPersistPasswordInKeychain(rememberPassword)
                             }
-                            val created = withContext(Dispatchers.IO) {
-                                createProfilesFromDiscovery(discovery)
+                            val effectivePassword = if (usingKeychain) {
+                                keychainPasswordForSavedIdentity
+                            } else {
+                                password
                             }
-                            StartupGate.markDiscoveryComplete()
-                            busy = false
-                            onDiscovered(created)
-                        }.onFailure { err ->
-                            busy = false
-                            errorMessage = err.message ?: "Discovery failed"
-                            if (usedCachedPassword) {
-                                dropCachedSessionPassword(adfsHost.trim(), username.trim())
+                            if (effectivePassword.isNullOrEmpty()) {
+                                busy = false
+                                errorMessage = "No password available — please enter one."
                                 keychainPasswordForSavedIdentity = null
-                                errorMessage = "Saved password rejected — please enter it again."
+                                return@launch
+                            }
+                            val usedCachedPassword = usingKeychain
+                            val result = AdfsAuthenticator().discoverRoles(
+                                adfsHost = adfsHost.trim(),
+                                username = username.trim(),
+                                password = effectivePassword,
+                                fetchAliasesFromAws = fetchAliasesFromAws,
+                            )
+                            result.onSuccess { discovery ->
+                                if (!usedCachedPassword) {
+                                    rememberPasswordForSession(effectivePassword)
+                                }
+                                val created = withContext(Dispatchers.IO) {
+                                    createProfilesFromDiscovery(discovery)
+                                }
+                                StartupGate.markDiscoveryComplete()
+                                busy = false
+                                onDiscovered(created)
+                            }.onFailure { err ->
+                                busy = false
+                                errorMessage = err.message ?: "Discovery failed"
+                                if (usedCachedPassword) {
+                                    dropCachedSessionPassword(adfsHost.trim(), username.trim())
+                                    keychainPasswordForSavedIdentity = null
+                                    errorMessage = "Saved password rejected — please enter it again."
+                                }
                             }
                         }
-                    }
-                },
-            ) { Text("Connect") }
+                    },
+                ) { Text("Connect") }
+            }
         }
     }
 }
