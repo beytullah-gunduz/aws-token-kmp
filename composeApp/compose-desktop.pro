@@ -53,6 +53,14 @@
 -keep interface fr.gunduz.awstoken.desktop.chrome.NativeWindowDrag$ObjC { *; }
 -keep class fr.gunduz.awstoken.desktop.chrome.NativeWindowDrag { *; }
 -keep class fr.gunduz.awstoken.desktop.chrome.NativeWindowDrag$* { *; }
+# `SecureCredentialStore` defines two private nested Library interfaces
+# (`CF` for CoreFoundation, `Sec` for Security.framework). Both are loaded
+# reflectively by JNA and reference CFStringRef globals that ProGuard
+# would otherwise be free to rename.
+-keep interface fr.gunduz.awstoken.desktop.auth.SecureCredentialStore$CF { *; }
+-keep interface fr.gunduz.awstoken.desktop.auth.SecureCredentialStore$Sec { *; }
+-keep class fr.gunduz.awstoken.desktop.auth.SecureCredentialStore { *; }
+-keep class fr.gunduz.awstoken.desktop.auth.SecureCredentialStore$* { *; }
 
 # --- AppIcons ---------------------------------------------------------------
 # The hand-inlined Material Icons in `fr.gunduz.awstoken.ui.icons.AppIcons`
